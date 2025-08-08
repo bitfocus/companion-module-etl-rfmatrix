@@ -4,21 +4,31 @@
     "shortname": "victor",
     "description": "Control ETL Victor RF Matrices over TCP",
     "manufacturer": "ETL Systems",
-    "products": ["Victor RF Matrix"],
-    "keywords": ["matrix", "routing", "rf", "etl", "victor"],
+    "products": [
+        "Victor RF Matrix"
+    ],
+    "keywords": [
+        "matrix",
+        "routing",
+        "rf",
+        "etl",
+        "victor"
+    ],
     "version": "0.0.0",
     "license": "MIT",
     "repository": "https://github.com/DaanCMP/companion-module-etl-victor-rfmatrix",
     "bugs": "https://github.com/DaanCMP/companion-module-etl-victor-rfmatrix/issues",
     "maintainers": [
-      { "name": "Daniel Vegter", "email": "info@daancmp.nl" }
+        {
+            "name": "Daniel Vegter",
+            "email": "info@daancmp.nl"
+        }
     ],
     "legacyIds": [],
     "runtime": {
-      "type": "node18",
-      "api": "nodejs-ipc",
-      "apiVersion": "0.0.0",
-      "entrypoint": "../dist/index.js"
+        "type": "node18",
+        "api": "nodejs-ipc",
+        "apiVersion": "0.0.0",
+        "entrypoint": "../dist/main.js"
     }
-  }
-  
+}

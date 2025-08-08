@@ -6,11 +6,11 @@
   "license": "MIT",
   "type": "commonjs",
   "private": false,
-  "main": "dist/main.js",
+  "main": "src/main.js",
   "scripts": {
-    "build": "companion-module/tools",
-    "lint": "companion-module/tools",
-    "package": "companion-module/tools"
+    "check": "companion-module-check",
+    "build": "companion-module-build --dev",
+    "package": "companion-module-build"
   },
   "keywords": [
     "companion",
@@ -23,9 +23,10 @@
     "routing"
   ],
   "peerDependencies": {
-    "@companion-module/base": ">=4.0.0"
+    "@companion-module/base": "^1.11.3"
   },
   "devDependencies": {
-    "@companion-module/tools": "1.5.1"
+    "@companion-module/tools": "1.5.1",
+    "@companion-module/base": "^1.11.3"
   }
 }
