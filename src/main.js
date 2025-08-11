@@ -1,3 +1,4 @@
+// src/main.js
 const { InstanceBase, InstanceStatus, Regex, runEntrypoint } = require('@companion-module/base')
 const net = require('net')
 
@@ -5,20 +6,17 @@ const net = require('net')
 function pad3(n) {
   return String(n).padStart(3, '0')
 }
-
 /** ETL checksum includes braces and everything except the checksum char */
 function etlChecksumForPacket(packetWithoutChecksum) {
   const sum = [...packetWithoutChecksum].reduce((a, c) => a + (c.charCodeAt(0) - 32), 0)
   return String.fromCharCode((sum % 95) + 32)
 }
-
 /** Build full packet and append checksum. CRLF gets added on send. */
 function pkt(body) {
   const payload = `{${body}}`
   const csum = etlChecksumForPacket(payload)
   return payload + csum
 }
-
 /** One shot TCP helper. Connect, send, collect briefly, close. */
 function tcpRequest({ host, port, message, inactivityMs = 200, overallTimeoutMs = 1500, logger = () => {} }) {
   return new Promise((resolve, reject) => {
@@ -30,13 +28,11 @@ function tcpRequest({ host, port, message, inactivityMs = 200, overallTimeoutMs 
       cleanup()
       reject(new Error('TCP overall timeout'))
     }, overallTimeoutMs)
-
     function cleanup() {
       try { client.destroy() } catch {}
       if (inactivityTimer) clearTimeout(inactivityTimer)
       clearTimeout(overallTimer)
     }
-
     function armInactivity() {
       if (inactivityTimer) clearTimeout(inactivityTimer)
       inactivityTimer = setTimeout(() => {
@@ -45,20 +41,16 @@ function tcpRequest({ host, port, message, inactivityMs = 200, overallTimeoutMs 
         resolve(data)
       }, inactivityMs)
     }
-
     client.setNoDelay(true)
-
     client.on('error', (err) => {
       cleanup()
       reject(err)
     })
-
     client.on('data', (buf) => {
       chunks.push(buf)
       gotAny = true
       armInactivity()
     })
-
     client.on('close', () => {
       if (gotAny) {
         const data = Buffer.concat(chunks).toString('ascii')
@@ -69,7 +61,6 @@ function tcpRequest({ host, port, message, inactivityMs = 200, overallTimeoutMs 
         resolve('')
       }
     })
-
     client.connect(port, host, () => {
       logger(`TX: ${JSON.stringify(message)}`)
       client.write(message, 'ascii')
@@ -163,6 +154,30 @@ class VictorInstance extends InstanceBase {
     })
   }
 
+  getOddInputChoices() {
+    const max = this.inputAliases?.length || this.inputsCount || 16
+    const items = []
+    for (let i = 1; i <= max; i += 2) {
+      const l1 = this.inputAliases[i - 1] || ''
+      const l2 = this.inputAliases[i] || ''
+      const lbl = l2 ? `${pad3(i)}+${pad3(i + 1)}  ${l1} / ${l2}` : `${pad3(i)}  ${l1}`
+      items.push({ id: String(i), label: lbl })
+    }
+    return items
+  }
+
+  getOddOutputChoices() {
+    const max = this.outputAliases?.length || this.outputsCount || 16
+    const items = []
+    for (let o = 1; o <= max; o += 2) {
+      const l1 = this.outputAliases[o - 1] || ''
+      const l2 = this.outputAliases[o] || ''
+      const lbl = l2 ? `${pad3(o)}+${pad3(o + 1)}  ${l1} / ${l2}` : `${pad3(o)}  ${l1}`
+      items.push({ id: String(o), label: lbl })
+    }
+    return items
+  }
+
   // ---------- actions ----------
   initActions() {
     this.setActionDefinitions({
@@ -206,7 +221,7 @@ class VictorInstance extends InstanceBase {
         }
       },
 
-      // Route with dropdowns that accept custom input or variables
+      // Route single
       route: {
         name: 'Route input to output (short switch s)',
         options: [
@@ -248,10 +263,69 @@ class VictorInstance extends InstanceBase {
 
           const i = pad3(iNum)
           const o = pad3(oNum)
+          const body = `${this.dstAddr()}${this.srcAddr()}s,${o},${i}`  // distributive OOO,III
+          await this.sendBody(body)
+        }
+      },
+
+      // Route pairs: odd input and odd output only. i routes to o and i+1 routes to o+1
+      route_pair: {
+        name: 'Route paired inputs to paired outputs',
+        options: [
+          {
+            id: 'input_odd',
+            type: 'dropdown',
+            label: 'Odd input (routes i and i+1)',
+            choices: this.getOddInputChoices(),
+            allowCustom: true,
+            default: '1'
+          },
+          {
+            id: 'output_odd',
+            type: 'dropdown',
+            label: 'Odd output (routes o and o+1)',
+            choices: this.getOddOutputChoices(),
+            allowCustom: true,
+            default: '1'
+          }
+        ],
+        callback: async ({ options }) => {
+          const inStr = await this.parseVariablesInString(String(options.input_odd ?? ''))
+          const outStr = await this.parseVariablesInString(String(options.output_odd ?? ''))
+
+          const i1 = Number(inStr.trim())
+          const o1 = Number(outStr.trim())
+
+          const maxIn = this.inputAliases?.length || this.inputsCount || 16
+          const maxOut = this.outputAliases?.length || this.outputsCount || 16
+
+          // Validate odd and in range, and that i+1 and o+1 exist
+          if (!Number.isFinite(i1) || i1 < 1 || i1 > maxIn || i1 % 2 === 0) {
+            this.log('error', `Input must be an odd number 1..${maxIn}. Got "${inStr}"`)
+            return
+          }
+          if (!Number.isFinite(o1) || o1 < 1 || o1 > maxOut || o1 % 2 === 0) {
+            this.log('error', `Output must be an odd number 1..${maxOut}. Got "${outStr}"`)
+            return
+          }
+          if (i1 + 1 > maxIn) {
+            this.log('error', `Input pair overflows. Need input ${i1 + 1} to exist`)
+            return
+          }
+          if (o1 + 1 > maxOut) {
+            this.log('error', `Output pair overflows. Need output ${o1 + 1} to exist`)
+            return
+          }
+
           const DA = this.dstAddr()
           const SA = this.srcAddr()
-          const body = `${DA}${SA}s,${o},${i}`  // distributive OOO,III
-          await this.sendBody(body)
+
+          const body1 = `${DA}${SA}s,${pad3(o1)},${pad3(i1)}`
+          const body2 = `${DA}${SA}s,${pad3(o1 + 1)},${pad3(i1 + 1)}`
+
+          // Send the two routes in sequence
+          await this.sendBody(body1)
+          await this.sendBody(body2)
         }
       },
 
@@ -283,38 +357,30 @@ class VictorInstance extends InstanceBase {
       })
     }, interval)
   }
-
   stopAliasPolling() {
     if (this.aliasTimer) {
       clearInterval(this.aliasTimer)
       this.aliasTimer = null
     }
   }
-
   parseAliasDump(reply) {
     // Example:
     // {BAT?,C1-1,...,C4-4,ANT1,...,AN16}g
     const start = reply.indexOf('{')
     const end = reply.lastIndexOf('}')
     if (start < 0 || end < 0 || end <= start) return null
-
     const inner = reply.slice(start + 1, end)
     const parts = inner.split(',')
     if (parts.length < 2) return null
-
     const header = parts[0]
     if (!header.endsWith('T?')) return null
-
     const tokens = parts.slice(1)
     if (tokens.length % 2 !== 0 || tokens.length === 0) return null
-
     const half = tokens.length / 2
     const outAliases = tokens.slice(0, half)
     const inAliases = tokens.slice(half)
-
     return { outAliases, inAliases }
   }
-
   async pollAliasesOnce() {
     const body = `${this.dstAddr()}${this.srcAddr()}T?`
     const msg = pkt(body) + '\r\n'
@@ -350,7 +416,7 @@ class VictorInstance extends InstanceBase {
     inAliases.forEach((name, idx) => (vals[`input_${pad3(idx + 1)}_name`] = name))
     this.setVariableValues(vals)
 
-    // Refresh actions so dropdowns show latest names
+    // Refresh actions so dropdowns show latest names including the pair lists
     this.initActions()
   }
 
@@ -364,45 +430,34 @@ class VictorInstance extends InstanceBase {
       })
     }, interval)
   }
-
   stopStatusPolling() {
     if (this.statusTimer) {
       clearInterval(this.statusTimer)
       this.statusTimer = null
     }
   }
-
   parseFullStatus(reply) {
     // Example:
     // {BASTATUS,000,002,003,...,016,O,F,O,F}<csum>
     const start = reply.indexOf('{')
     const end = reply.lastIndexOf('}')
     if (start < 0 || end < 0 || end <= start) return null
-
     const inner = reply.slice(start + 1, end)
     const parts = inner.split(',')
     if (parts.length < 2) return null
-
     const header = parts[0] // should contain "STATUS"
     if (!header.includes('STATUS')) return null
-
     // last 4 tokens are flags
     if (parts.length < 6) return null
     const flags = parts.slice(-4)
     const nums = parts.slice(1, -4)
-
-    // nums are 3-digit strings. On distributive, each is the input number for output index
+    // nums are 3 digit strings. On distributive, each is the input number for output index
     const sources = nums.map((n) => {
       const v = parseInt(n, 10)
       return isNaN(v) ? 0 : v
     })
-
-    return {
-      sources,
-      flags // [psu1, psu2, link, summary]
-    }
+    return { sources, flags }
   }
-
   async pollStatusOnce() {
     const body = `${this.dstAddr()}${this.srcAddr()}?`
     const msg = pkt(body) + '\r\n'
@@ -421,30 +476,23 @@ class VictorInstance extends InstanceBase {
     if (!parsed) return
 
     const { sources, flags } = parsed
-    // If we did not know output count yet, adopt it from status
     if (!this.outputsCount || this.outputsCount !== sources.length) {
       this.outputsCount = sources.length
-      // rebuild to ensure out_###_src vars exist
       this.rebuildVariableDefinitions()
     }
 
-    // Update per output source vars
     const vals = {}
     sources.forEach((srcNum, idx) => {
       vals[`out_${pad3(idx + 1)}_src`] = String(srcNum)
     })
 
-    // Update health flags
     const [psu1, psu2, link, summary] = flags
     vals['psu1_ok'] = psu1 || ''
     vals['psu2_ok'] = psu2 || ''
     vals['link_ok'] = link || ''
-    // summary flag in the manual is "internal summary alarm". O = OK, F = Fault
     vals['summary_alarm_ok'] = summary || ''
-
     this.setVariableValues(vals)
   }
-
   async pollQuickStatusOnce() {
     const body = `${this.dstAddr()}${this.srcAddr()}Q`
     const msg = pkt(body) + '\r\n'
@@ -455,14 +503,13 @@ class VictorInstance extends InstanceBase {
       logger: (s) => this.log('debug', s)
     })
     if (!reply) return
-
     // Example quick: {BAQOFOF}<csum>
     const start = reply.indexOf('{')
     const end = reply.lastIndexOf('}')
     if (start >= 0 && end > start) {
       const inner = reply.slice(start + 1, end)
       if (inner.length >= 6 && inner[2] === 'Q') {
-        const flags = inner.slice(3) // should be 4 chars like O F O F
+        const flags = inner.slice(3)
         const vals = {
           psu1_ok: flags[0] || '',
           psu2_ok: flags[1] || '',
