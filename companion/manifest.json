@@ -5,7 +5,7 @@
     "description": "Control ETL Victor RF Matrices over TCP",
     "manufacturer": "ETL Systems",
     "products": [
-        "Victor RF Matrix"
+        "ETL Victor RF Matrix"
     ],
     "keywords": [
         "matrix",

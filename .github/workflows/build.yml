@@ -1,0 +1,25 @@
+name: Build Companion Module
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      - run: yarn install --frozen-lockfile
+      - run: yarn run build
+      - name: Upload dist and pkg
+        uses: actions/upload-artifact@v4
+        with:
+          name: companion-build
+          path: |
+            dist/**
+            pkg/**
+            companion/manifest.json
+            package.json
