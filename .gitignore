@@ -1,13 +1,19 @@
-# Node
+# Node.js dependencies
 node_modules/
-npm-debug.log*
-yarn.lock
-package-lock.json
 
-# Build output
+# Build outputs
 dist/
-*.tgz
+pkg/
 
-# OS
+# Local environment
+.env
 .DS_Store
-Thumbs.db
+
+# Companion dev/test flags
+DEBUG-PACKAGED
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

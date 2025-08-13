@@ -16,12 +16,12 @@
     ],
     "version": "0.0.0",
     "license": "MIT",
-    "repository": "https://github.com/DaanCMP/companion-module-etl-victor-rfmatrix",
-    "bugs": "https://github.com/DaanCMP/companion-module-etl-victor-rfmatrix/issues",
+    "repository": "https://github.com/bitfocus/companion-module-etl-rfmatrix",
+    "bugs": "https://github.com/bitfocus/companion-module-etl-rfmatrix/issues",
     "maintainers": [
         {
             "name": "Daniel Vegter",
-            "email": "info@daancmp.nl"
+            "url": "https://github.com/gdveg"
         }
     ],
     "legacyIds": [],
