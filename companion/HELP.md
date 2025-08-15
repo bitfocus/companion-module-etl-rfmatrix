@@ -66,8 +66,8 @@ The following variables are available:
 
 ## **Notes**
 
-- Ensure the Victor RF Matrix has TCP control enabled and is reachable from the Companion system.  
-- This module communicates using ETL's ASCII protocol with checksum validation.  
+- Ensure the Victor RF Matrix has TCP control enabled and is reachable from the Companion system.
+- This module communicates using ETL's ASCII protocol with checksum validation.
 - If aliases are changed on the matrix directly, they will be updated in Companion at the next poll.
 
 ---
@@ -75,12 +75,13 @@ The following variables are available:
 ## **Example Button Setup**
 
 1. **Route Control Button**
-   - Action: *Route Input to Output*
+
+   - Action: _Route Input to Output_
    - Input: `$(internal:custom_variable)` or choose from dropdown
    - Output: `4`
 
 2. **Status Feedback**
-   - Feedback: *Output Source Match*
+   - Feedback: _Output Source Match_
    - Output: `4`
    - Input: `1`
    - Foreground Color: White  
@@ -98,6 +99,18 @@ The following variables are available:
 
 - **Routing Command Fails**  
   Verify input/output numbers are valid for your matrix (usually 1–16).
+
+---
+
+## Compatibility
+
+While this module has been developed and tested with the **ETL Victor RF Matrix**, it **should** also work with other ETL RF matrix models that support the same protocol.
+However, I have not been able to test with other models myself.  
+If you try this module with another ETL matrix model, please let me know:
+- If it works as expected
+- If there are any errors or differences in behavior
+
+Your feedback will help improve compatibility and reliability for all users.
 
 ---
 
