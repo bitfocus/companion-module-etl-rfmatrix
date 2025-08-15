@@ -107,6 +107,7 @@ The following variables are available:
 While this module has been developed and tested with the **ETL Victor RF Matrix**, it **should** also work with other ETL RF matrix models that support the same protocol.
 However, I have not been able to test with other models myself.  
 If you try this module with another ETL matrix model, please let me know:
+
 - If it works as expected
 - If there are any errors or differences in behavior
 

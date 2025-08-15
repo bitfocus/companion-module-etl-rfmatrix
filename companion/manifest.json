@@ -1,26 +1,26 @@
 {
-  "id": "etl-rfmatrix",
-  "name": "ETL Systems: Victor RF Matrix",
-  "shortname": "victor",
-  "description": "Control ETL Victor RF Matrices over TCP",
-  "manufacturer": "ETL Systems",
-  "products": ["ETL Victor RF Matrix"],
-  "keywords": ["matrix", "routing", "rf", "etl", "victor"],
-  "version": "0.0.0",
-  "license": "MIT",
-  "repository": "https://github.com/bitfocus/companion-module-etl-rfmatrix",
-  "bugs": "https://github.com/bitfocus/companion-module-etl-rfmatrix/issues",
-  "maintainers": [
-    {
-      "name": "Daniel Vegter",
-      "url": "https://github.com/gdveg"
-    }
-  ],
-  "legacyIds": [],
-  "runtime": {
-    "type": "node18",
-    "api": "nodejs-ipc",
-    "apiVersion": "0.0.0",
-    "entrypoint": "../dist/main.js"
-  }
+	"id": "etl-rfmatrix",
+	"name": "ETL Systems: Victor RF Matrix",
+	"shortname": "victor",
+	"description": "Control ETL Victor RF Matrices over TCP",
+	"manufacturer": "ETL Systems",
+	"products": ["ETL Victor RF Matrix"],
+	"keywords": ["matrix", "routing", "rf", "etl", "victor"],
+	"version": "0.0.0",
+	"license": "MIT",
+	"repository": "https://github.com/bitfocus/companion-module-etl-rfmatrix",
+	"bugs": "https://github.com/bitfocus/companion-module-etl-rfmatrix/issues",
+	"maintainers": [
+		{
+			"name": "Daniel Vegter",
+			"url": "https://github.com/gdveg"
+		}
+	],
+	"legacyIds": [],
+	"runtime": {
+		"type": "node18",
+		"api": "nodejs-ipc",
+		"apiVersion": "0.0.0",
+		"entrypoint": "../dist/main.js"
+	}
 }
