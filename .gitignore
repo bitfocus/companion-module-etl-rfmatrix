@@ -1,0 +1,19 @@
+# Node.js dependencies
+node_modules/
+
+# Build outputs
+dist/
+pkg/
+
+# Local environment
+.env
+.DS_Store
+
+# Companion dev/test flags
+DEBUG-PACKAGED
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
