@@ -2,6 +2,9 @@
 
 All notable changes to this project will be documented in this file.
 This project follows [Semantic Versioning](https://semver.org/) and the style of [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+## [1.1.3] - 2025-08-15
+### Changed
+- Fixed builderrors
 
 ## [1.1.2] - 2025-08-15
 ### Changed
