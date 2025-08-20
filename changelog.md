@@ -3,6 +3,20 @@
 All notable changes to this project will be documented in this file.
 This project follows [Semantic Versioning](https://semver.org/) and the style of [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.1.5] - 2025-08-20
+
+### Added
+
+- Inputs and Outputs count can be set manually in config.
+- Matrix size is also autodetected from alias or status dumps when possible, overriding the manual size.
+
+### Changed
+
+- Module now automatically updates status to OK (green) after successful alias or status polls.
+- Immediate alias and status polls are triggered at boot so connection state is known right away.
+- Empty or unparsable replies are flagged as Unknown/Warning.
+- Poll errors now mark the instance as ConnectionFailure.
+
 ## [1.1.4] - 2025-08-15
 
 ### Changed

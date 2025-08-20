@@ -1,7 +1,7 @@
 {
 	"name": "companion-module-etl-rfmatrix",
-	"version": "1.1.4",
-	"description": "Bitfocus Companion module for ETL Systems Victor RF Matrix",
+	"version": "1.1.5",
+	"description": "Bitfocus Companion module for ETL Systems RF Matrix",
 	"author": "Daniel Vegter",
 	"license": "MIT",
 	"type": "commonjs",

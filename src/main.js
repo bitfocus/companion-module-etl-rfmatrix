@@ -72,7 +72,7 @@ function tcpRequest({ host, port, message, inactivityMs = 200, overallTimeoutMs 
 }
 
 // ---------- instance ----------
-class VictorInstance extends InstanceBase {
+class EtlRfMatrixInstance extends InstanceBase {
 	async init(config) {
 		this.config = config
 
@@ -93,8 +93,43 @@ class VictorInstance extends InstanceBase {
 		this.initActions()
 		this.startAliasPolling()
 		this.startStatusPolling()
+		try {
+			await this.pollAliasesOnce()
+		} catch {}
+		try {
+			await this.pollStatusOnce()
+		} catch {}
 
-		this.log('info', 'Victor ready. Test Connect to verify. Aliases and routing status will auto update.')
+		// New: kick off immediate polls on boot
+		try {
+			await this.pollAliasesOnce()
+		} catch (e) {
+			this.log('debug', `Initial alias poll error: ${e?.message || e}`)
+		}
+		try {
+			await this.pollStatusOnce()
+		} catch (e) {
+			this.log('debug', `Initial status poll error: ${e?.message || e}`)
+		}
+
+		this.log('info', 'Matrix ready. Test Connect to verify. Aliases and routing status will auto update.')
+	}
+
+	// Convenience: configured sizes with sensible fallbacks
+	configuredInputs() {
+		const n = Number(this.config?.inputsConfigured)
+		return Number.isFinite(n) && n > 0 ? n : 16
+	}
+	configuredOutputs() {
+		const n = Number(this.config?.outputsConfigured)
+		return Number.isFinite(n) && n > 0 ? n : 16
+	}
+	effectiveInputs() {
+		// Prefer learned size, fall back to configured until we learn
+		return this.inputsCount || this.configuredInputs()
+	}
+	effectiveOutputs() {
+		return this.outputsCount || this.configuredOutputs()
 	}
 
 	// ---------- variable definitions ----------
@@ -111,14 +146,17 @@ class VictorInstance extends InstanceBase {
 			{ variableId: 'summary_alarm_ok', name: 'Summary alarm OK (O/F)' },
 		]
 
+		const outs = this.effectiveOutputs()
+		const ins = this.effectiveInputs()
+
 		// Alias name variables
-		for (let o = 1; o <= (this.outputsCount || 0); o++) {
+		for (let o = 1; o <= outs; o++) {
 			defs.push({
 				variableId: `output_${pad3(o)}_name`,
 				name: `Output ${pad3(o)} name`,
 			})
 		}
-		for (let i = 1; i <= (this.inputsCount || 0); i++) {
+		for (let i = 1; i <= ins; i++) {
 			defs.push({
 				variableId: `input_${pad3(i)}_name`,
 				name: `Input ${pad3(i)} name`,
@@ -126,7 +164,7 @@ class VictorInstance extends InstanceBase {
 		}
 
 		// Routing source per output
-		for (let o = 1; o <= (this.outputsCount || 0); o++) {
+		for (let o = 1; o <= outs; o++) {
 			defs.push({
 				variableId: `out_${pad3(o)}_src`,
 				name: `Output ${pad3(o)} source (input number)`,
@@ -144,7 +182,7 @@ class VictorInstance extends InstanceBase {
 				label: `${pad3(i + 1)}  ${label}`,
 			}))
 		}
-		const n = Math.max(1, this.inputsCount || 16)
+		const n = Math.max(1, this.effectiveInputs())
 		return Array.from({ length: n }, (_, i) => {
 			const idx = i + 1
 			return { id: String(idx), label: pad3(idx) }
@@ -158,7 +196,7 @@ class VictorInstance extends InstanceBase {
 				label: `${pad3(i + 1)}  ${label}`,
 			}))
 		}
-		const n = Math.max(1, this.outputsCount || 16)
+		const n = Math.max(1, this.effectiveOutputs())
 		return Array.from({ length: n }, (_, i) => {
 			const idx = i + 1
 			return { id: String(idx), label: pad3(idx) }
@@ -166,7 +204,7 @@ class VictorInstance extends InstanceBase {
 	}
 
 	getOddInputChoices() {
-		const max = this.inputAliases?.length || this.inputsCount || 16
+		const max = this.inputAliases?.length || this.effectiveInputs()
 		const items = []
 		for (let i = 1; i <= max; i += 2) {
 			const l1 = this.inputAliases[i - 1] || ''
@@ -178,7 +216,7 @@ class VictorInstance extends InstanceBase {
 	}
 
 	getOddOutputChoices() {
-		const max = this.outputAliases?.length || this.outputsCount || 16
+		const max = this.outputAliases?.length || this.effectiveOutputs()
 		const items = []
 		for (let o = 1; o <= max; o += 2) {
 			const l1 = this.outputAliases[o - 1] || ''
@@ -187,6 +225,23 @@ class VictorInstance extends InstanceBase {
 			items.push({ id: String(o), label: lbl })
 		}
 		return items
+	}
+
+	// ---------- status helpers ----------
+	_markOk(msg = 'poll ok') {
+		this.updateStatus(InstanceStatus.Ok)
+		this.log('debug', msg)
+	}
+	_markWarn(msg = 'no data or parse error') {
+		// If your base supports InstanceStatus.Warning, use that
+		this.updateStatus(InstanceStatus.Unknown, msg)
+		this.log('debug', msg)
+	}
+	_markFail(err) {
+		const m = err?.message || String(err) || 'poll failed'
+		this.updateStatus(InstanceStatus.ConnectionFailure, m)
+		this.setVariableValues({ last_error: m })
+		this.log('error', m)
 	}
 
 	// ---------- actions ----------
@@ -263,8 +318,8 @@ class VictorInstance extends InstanceBase {
 					const iNum = Number(inStr.trim())
 					const oNum = Number(outStr.trim())
 
-					const maxIn = this.inputAliases?.length || this.inputsCount || 16
-					const maxOut = this.outputAliases?.length || this.outputsCount || 16
+					const maxIn = this.inputAliases?.length || this.effectiveInputs()
+					const maxOut = this.outputAliases?.length || this.effectiveOutputs()
 
 					if (!Number.isFinite(iNum) || iNum < 0 || iNum > Math.max(999, maxIn)) {
 						this.log('error', `Input must be a number 0..${maxIn}. Got "${inStr}"`)
@@ -310,8 +365,8 @@ class VictorInstance extends InstanceBase {
 					const i1 = Number(inStr.trim())
 					const o1 = Number(outStr.trim())
 
-					const maxIn = this.inputAliases?.length || this.inputsCount || 16
-					const maxOut = this.outputAliases?.length || this.outputsCount || 16
+					const maxIn = this.inputAliases?.length || this.effectiveInputs()
+					const maxOut = this.outputAliases?.length || this.effectiveOutputs()
 
 					// Validate odd and in range, and that i+1 and o+1 exist
 					if (!Number.isFinite(i1) || i1 < 1 || i1 > maxIn || i1 % 2 === 0) {
@@ -396,42 +451,43 @@ class VictorInstance extends InstanceBase {
 		return { outAliases, inAliases }
 	}
 	async pollAliasesOnce() {
-		const body = `${this.dstAddr()}${this.srcAddr()}T?`
-		const msg = pkt(body) + '\r\n'
-		const reply = await tcpRequest({
-			host: this.host(),
-			port: this.port(),
-			message: msg,
-			logger: (s) => this.log('debug', s),
-		})
-		if (!reply) return
+		try {
+			const body = `${this.dstAddr()}${this.srcAddr()}T?`
+			const msg = pkt(body) + '\r\n'
+			const reply = await tcpRequest({
+				host: this.host(),
+				port: this.port(),
+				message: msg,
+				logger: (s) => this.log('debug', s),
+			})
+			if (!reply) return this._markWarn('Alias poll: empty reply')
 
-		this.setVariableValues({ last_alias_dump: reply, last_error: '' })
-		this.log('debug', `Alias dump RX: ${reply}`)
+			this.setVariableValues({ last_alias_dump: reply, last_error: '' })
+			this.log('debug', `Alias dump RX: ${reply}`)
 
-		const parsed = this.parseAliasDump(reply)
-		if (!parsed) return
+			const parsed = this.parseAliasDump(reply)
+			if (!parsed) return this._markWarn('Alias poll: parse failed')
 
-		const { outAliases, inAliases } = parsed
+			const { outAliases, inAliases } = parsed
 
-		// Save for dropdowns and variables
-		this.outputAliases = outAliases
-		this.inputAliases = inAliases
+			this.outputAliases = outAliases
+			this.inputAliases = inAliases
 
-		// Update sizes if changed and rebuild defs
-		const changed = outAliases.length !== this.outputsCount || inAliases.length !== this.inputsCount
-		this.outputsCount = outAliases.length
-		this.inputsCount = inAliases.length
-		if (changed) this.rebuildVariableDefinitions()
+			const changed = outAliases.length !== this.outputsCount || inAliases.length !== this.inputsCount
+			this.outputsCount = outAliases.length
+			this.inputsCount = inAliases.length
+			if (changed) this.rebuildVariableDefinitions()
 
-		// Set alias name values
-		const vals = {}
-		outAliases.forEach((name, idx) => (vals[`output_${pad3(idx + 1)}_name`] = name))
-		inAliases.forEach((name, idx) => (vals[`input_${pad3(idx + 1)}_name`] = name))
-		this.setVariableValues(vals)
+			const vals = {}
+			outAliases.forEach((name, idx) => (vals[`output_${pad3(idx + 1)}_name`] = name))
+			inAliases.forEach((name, idx) => (vals[`input_${pad3(idx + 1)}_name`] = name))
+			this.setVariableValues(vals)
 
-		// Refresh actions so dropdowns show latest names including the pair lists
-		this.initActions()
+			this.initActions()
+			this._markOk('Alias poll ok')
+		} catch (e) {
+			this._markFail(e)
+		}
 	}
 
 	// ---------- status polling ----------
@@ -473,65 +529,77 @@ class VictorInstance extends InstanceBase {
 		return { sources, flags }
 	}
 	async pollStatusOnce() {
-		const body = `${this.dstAddr()}${this.srcAddr()}?`
-		const msg = pkt(body) + '\r\n'
-		const reply = await tcpRequest({
-			host: this.host(),
-			port: this.port(),
-			message: msg,
-			logger: (s) => this.log('debug', s),
-		})
-		if (!reply) return
+		try {
+			const body = `${this.dstAddr()}${this.srcAddr()}?`
+			const msg = pkt(body) + '\r\n'
+			const reply = await tcpRequest({
+				host: this.host(),
+				port: this.port(),
+				message: msg,
+				logger: (s) => this.log('debug', s),
+			})
+			if (!reply) return this._markWarn('Status poll: empty reply')
 
-		this.setVariableValues({ last_status_raw: reply, last_error: '' })
-		this.log('debug', `Status RX: ${reply}`)
+			this.setVariableValues({ last_status_raw: reply, last_error: '' })
+			this.log('debug', `Status RX: ${reply}`)
 
-		const parsed = this.parseFullStatus(reply)
-		if (!parsed) return
+			const parsed = this.parseFullStatus(reply)
+			if (!parsed) return this._markWarn('Status poll: parse failed')
 
-		const { sources, flags } = parsed
-		if (!this.outputsCount || this.outputsCount !== sources.length) {
-			this.outputsCount = sources.length
-			this.rebuildVariableDefinitions()
-		}
-
-		const vals = {}
-		sources.forEach((srcNum, idx) => {
-			vals[`out_${pad3(idx + 1)}_src`] = String(srcNum)
-		})
-
-		const [psu1, psu2, link, summary] = flags
-		vals['psu1_ok'] = psu1 || ''
-		vals['psu2_ok'] = psu2 || ''
-		vals['link_ok'] = link || ''
-		vals['summary_alarm_ok'] = summary || ''
-		this.setVariableValues(vals)
-	}
-	async pollQuickStatusOnce() {
-		const body = `${this.dstAddr()}${this.srcAddr()}Q`
-		const msg = pkt(body) + '\r\n'
-		const reply = await tcpRequest({
-			host: this.host(),
-			port: this.port(),
-			message: msg,
-			logger: (s) => this.log('debug', s),
-		})
-		if (!reply) return
-		// Example quick: {BAQOFOF}<csum>
-		const start = reply.indexOf('{')
-		const end = reply.lastIndexOf('}')
-		if (start >= 0 && end > start) {
-			const inner = reply.slice(start + 1, end)
-			if (inner.length >= 6 && inner[2] === 'Q') {
-				const flags = inner.slice(3)
-				const vals = {
-					psu1_ok: flags[0] || '',
-					psu2_ok: flags[1] || '',
-					link_ok: flags[2] || '',
-					summary_alarm_ok: flags[3] || '',
-				}
-				this.setVariableValues(vals)
+			const { sources, flags } = parsed
+			if (!this.outputsCount || this.outputsCount !== sources.length) {
+				this.outputsCount = sources.length
+				this.rebuildVariableDefinitions()
 			}
+
+			const vals = {}
+			sources.forEach((srcNum, idx) => {
+				vals[`out_${pad3(idx + 1)}_src`] = String(srcNum)
+			})
+
+			const [psu1, psu2, link, summary] = flags
+			vals['psu1_ok'] = psu1 || ''
+			vals['psu2_ok'] = psu2 || ''
+			vals['link_ok'] = link || ''
+			vals['summary_alarm_ok'] = summary || ''
+			this.setVariableValues(vals)
+
+			this._markOk('Full status poll ok')
+		} catch (e) {
+			this._markFail(e)
+		}
+	}
+
+	async pollQuickStatusOnce() {
+		try {
+			const body = `${this.dstAddr()}${this.srcAddr()}Q`
+			const msg = pkt(body) + '\r\n'
+			const reply = await tcpRequest({
+				host: this.host(),
+				port: this.port(),
+				message: msg,
+				logger: (s) => this.log('debug', s),
+			})
+			if (!reply) return this._markWarn('Quick status: empty reply')
+
+			const start = reply.indexOf('{')
+			const end = reply.lastIndexOf('}')
+			if (start >= 0 && end > start) {
+				const inner = reply.slice(start + 1, end)
+				if (inner.length >= 6 && inner[2] === 'Q') {
+					const flags = inner.slice(3)
+					this.setVariableValues({
+						psu1_ok: flags[0] || '',
+						psu2_ok: flags[1] || '',
+						link_ok: flags[2] || '',
+						summary_alarm_ok: flags[3] || '',
+					})
+					return this._markOk('Quick status poll ok')
+				}
+			}
+			this._markWarn('Quick status: parse failed')
+		} catch (e) {
+			this._markFail(e)
 		}
 	}
 
@@ -613,6 +681,27 @@ class VictorInstance extends InstanceBase {
 				width: 3,
 				default: 'B',
 			},
+
+			// New: matrix sizing
+			{
+				type: 'number',
+				id: 'inputsConfigured',
+				label: 'Inputs count',
+				width: 6,
+				default: 16,
+				min: 1,
+				max: 999,
+			},
+			{
+				type: 'number',
+				id: 'outputsConfigured',
+				label: 'Outputs count',
+				width: 6,
+				default: 16,
+				min: 1,
+				max: 999,
+			},
+
 			{
 				type: 'number',
 				id: 'aliasPollMs',
@@ -637,10 +726,25 @@ class VictorInstance extends InstanceBase {
 	async configUpdated(config) {
 		this.config = config
 		this.updateStatus(InstanceStatus.Unknown)
-		this.startAliasPolling()
-		this.startStatusPolling()
+
+		// Rebuild UI immediately to reflect new sizing
 		this.rebuildVariableDefinitions()
 		this.initActions()
+
+		this.startAliasPolling()
+		this.startStatusPolling()
+
+		// New: kick off immediate polls on settings save
+		try {
+			await this.pollAliasesOnce()
+		} catch (e) {
+			this.log('debug', `Alias poll after config update error: ${e?.message || e}`)
+		}
+		try {
+			await this.pollStatusOnce()
+		} catch (e) {
+			this.log('debug', `Status poll after config update error: ${e?.message || e}`)
+		}
 	}
 
 	async destroy() {
@@ -649,4 +753,4 @@ class VictorInstance extends InstanceBase {
 	}
 }
 
-runEntrypoint(VictorInstance)
+runEntrypoint(EtlRfMatrixInstance)
