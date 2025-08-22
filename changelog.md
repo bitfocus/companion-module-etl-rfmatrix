@@ -3,6 +3,30 @@
 All notable changes to this project will be documented in this file.
 This project follows [Semantic Versioning](https://semver.org/) and the style of [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.2.0-beta.1] - 2025-08-22
+
+### Added
+
+- XY panel presets similar to Videohub:
+  - **Destinations**: select an output (destination) with a single button.
+  - **Sources (Loose)**: route a single input directly to the selected destination.
+  - **Sources (Paired)**: route paired inputs (i and i+1) to paired destinations (o and o+1).
+- Visual feedback styles:
+  - Selected destination button highlights **yellow**.
+  - Routed source button highlights **green**.
+  - Routed paired source highlights **green** when both members are routed correctly.
+- Placeholders for inputs and outputs when the matrix is offline (`I001`, `O001`, etc), so buttons are never blank.
+
+### Changed
+
+- Feedback evaluation is now triggered live on selection, routing, and status polls.
+- Destination and source highlights update immediately without reopening the presets.
+
+### Notes
+
+- This is a **prerelease (beta)** intended for field testing.
+- Final `v1.2.0` will be released after production validation.
+
 ## [1.1.5] - 2025-08-20
 
 ### Added
