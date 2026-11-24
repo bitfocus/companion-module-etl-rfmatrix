@@ -1,6 +1,6 @@
 {
 	"name": "companion-module-etl-rfmatrix",
-	"version": "1.2.1",
+	"version": "1.2.2",
 	"description": "Bitfocus Companion module for ETL Systems RF Matrix",
 	"author": "Daniel Vegter",
 	"license": "MIT",
@@ -26,10 +26,10 @@
 	],
 	"prettier": "@companion-module/tools/.prettierrc.json",
 	"dependencies": {
-		"@companion-module/base": "^1.11.3"
+		"@companion-module/base": "^1.15.1"
 	},
 	"devDependencies": {
-		"@companion-module/tools": "^2.8.0",
+		"@companion-module/tools": "^2.9.1",
 		"prettier": "^3.3.3"
 	}
 }
